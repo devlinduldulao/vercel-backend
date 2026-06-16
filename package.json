@@ -1,0 +1,23 @@
+{
+  "name": "vercel-backend",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx/esm --test tests/**/*.test.ts",
+    "audit": "npm audit --prod"
+  },
+  "dependencies": {
+    "@daloyjs/core": "^0.38.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3",
+    "vercel": "^48.0.0"
+  }
+}

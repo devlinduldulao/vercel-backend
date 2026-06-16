@@ -1,0 +1,54 @@
+# syntax=docker/dockerfile:1.7
+# Containerized local-dev / CI environment for a DaloyJS Vercel API.
+#
+# Production deploys go through `vercel deploy` to Vercel's managed
+# Node.js runtime — **this Dockerfile is not a production runtime**. Ship
+# the function to Vercel; use this image for:
+#   - Reproducible local dev (devcontainers, GitHub Codespaces).
+#   - CI smoke tests that exercise the handler against `vercel dev`
+#     without installing Node/pnpm on the runner.
+#   - Self-hosted review apps when migrating to the `node-basic`
+#     template later.
+#
+# Hardening shipped out of the box:
+#   - Non-root runtime user (uid 1001).
+#   - Read-only-root-filesystem friendly: writes are confined to the
+#     working dir; mount `/tmp` as tmpfs (`--read-only --tmpfs /tmp`).
+#   - `STOPSIGNAL SIGTERM` so `vercel dev` exits cleanly.
+#   - Minimal runner surface: no `curl`, no extra OS packages.
+#     BusyBox `wget` powers the HEALTHCHECK.
+#   - `tini` as PID 1 for proper signal forwarding and zombie reaping
+#     (important because `vercel dev` spawns child processes).
+#   - `npm ci --ignore-scripts` matches the
+#     supply-chain defaults in `.npmrc` (no lifecycle scripts run).
+#   - Base image is consumed through the `NODE_IMAGE` ARG so builds
+#     can pin to an immutable digest:
+#       docker build --build-arg \
+#         NODE_IMAGE=node:24-alpine@sha256:<digest> .
+
+# Override at build time to pin a specific digest.
+ARG NODE_IMAGE=node:24-alpine
+
+FROM ${NODE_IMAGE} AS builder
+WORKDIR /app
+COPY package.json package-lock.json* npm-shrinkwrap.json* ./
+RUN npm ci --ignore-scripts
+COPY . .
+
+FROM ${NODE_IMAGE} AS runner
+WORKDIR /app
+ENV NODE_ENV=development
+# tini only — no curl, no extra packages.
+RUN apk add --no-cache tini && \
+    addgroup -S app -g 1001 && \
+  adduser -S app -G app -u 1001
+COPY --from=builder --chown=app:app /app /app
+USER app
+EXPOSE 3000
+STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -q -O /dev/null --spider http://127.0.0.1:3000/healthz || exit 1
+ENTRYPOINT ["/sbin/tini", "--"]
+# `vercel dev` binds the dev server. Listen on all interfaces so the
+# container is reachable from the host network.
+CMD ["./node_modules/.bin/vercel", "dev", "--listen", "0.0.0.0:3000"]
