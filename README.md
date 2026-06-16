@@ -27,7 +27,7 @@ curl http://localhost:3000/books/1
 - OpenAPI 3.1 YAML: <http://localhost:3000/openapi.yaml>
 
 After deploying, the same routes serve `/docs`, `/openapi.json`, and `/openapi.yaml` from your Vercel deployment URL.
-To brand Scalar, change `docs: true` in `api/[...path].ts` to `docs: { scalar: { theme, customCss } }`.
+To brand Scalar, change `docs: true` in `api/index.ts` to `docs: { scalar: { theme, customCss } }`.
 
 <!-- daloy-minimal:strip-end docs -->
 
@@ -37,7 +37,7 @@ To brand Scalar, change `docs: true` in `api/[...path].ts` to `docs: { scalar: {
 npm run deploy
 ```
 
-The API entry lives at `api/[...path].ts` and uses `@daloyjs/core/vercel`:
+The API entry lives at `api/index.ts` and uses `@daloyjs/core/vercel`:
 
 ```ts
 import { toFetchHandler } from "@daloyjs/core/vercel";
@@ -46,11 +46,22 @@ import { toFetchHandler } from "@daloyjs/core/vercel";
 export default toFetchHandler(app);
 ```
 
+Vercel maps `api/index.ts` to `/api`, but DaloyJS registers its routes at the
+site root (`/healthz`, `/docs`, …). `vercel.json` adds a catch-all rewrite so
+every path reaches the function and DaloyJS owns routing at the root — without
+it the deployed root domain returns a Vercel 404:
+
+```json
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
+}
+```
+
 This starter targets Vercel's Node.js runtime (on Fluid Compute), which Vercel
 now recommends for standalone functions. Node.js Functions expect a default
 export with a `fetch` method, which is exactly what `toFetchHandler(app)`
 returns. If you specifically need the Edge runtime, add the `runtime` export and
-switch to the bare web handler:
+switch to the bare web handler (the same `/(.*) → /api` rewrite applies):
 
 ```ts
 import { toWebHandler } from "@daloyjs/core/vercel";
@@ -59,14 +70,12 @@ export const runtime = "edge";
 export default toWebHandler(app);
 ```
 
-That catch-all API route lets DaloyJS own routing while Vercel handles the runtime.
-
 ## Imports
 
 This project uses TypeScript with `"allowImportingTsExtensions"`. Relative imports use the `.ts` extension — the actual file on disk:
 
 ```ts
-import handler from "../api/[...path].ts";
+import handler from "../api/index.ts";
 ```
 
 Vercel bundles the `api/` functions at deploy time and resolves `.ts` directly, and the test runner (tsx) does too.

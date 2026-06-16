@@ -4,8 +4,9 @@ description: >-
   Best practices for building, testing, and hardening this DaloyJS REST API on
   Vercel (Node.js runtime). Use when adding or changing HTTP routes, Zod
   schemas, middleware, or error handling; regenerating the OpenAPI spec or the
-  typed Hey API client; keeping the catch-all Vercel Functions entrypoint and
-  Web-Standard handler; or working on auth, rate limits, secrets, and the
+  typed Hey API client; keeping the single Vercel Functions entrypoint, its
+  root-routing rewrite, and the Web-Standard handler; or working on auth, rate
+  limits, secrets, and the
   project's quality gates.
 license: MIT
 ---
@@ -49,16 +50,20 @@ DaloyJS is a **contract-first** framework. On Vercel, additionally:
    in-memory rate limiter resets per instance — for high-traffic
    deployments, back it with an external shared store (e.g. Upstash
    Redis).
-6. **One catch-all entrypoint.** `api/[...path].ts` owns all routing so
-   DaloyJS can generate a unified OpenAPI spec.
+6. **One entrypoint + root-routing rewrite.** `api/index.ts` owns all
+   routing so DaloyJS can generate a unified OpenAPI spec. Vercel maps it
+   to `/api`, so `vercel.json` keeps a `/(.*) → /api` rewrite so every
+   path reaches the function at the site root (without it the root domain
+   returns a Vercel 404).
 
 ## Project shape
 
-- `api/[...path].ts` — the Vercel Functions entrypoint. Builds the `App`,
+- `api/index.ts` — the Vercel Functions entrypoint. Builds the `App`,
   registers routes/middleware, and exports `default toFetchHandler(app)`
   (Node.js Functions expect a default export with a `fetch` method; Node.js
   is the default runtime, so no `runtime` export is needed).
-- `vercel.json` — Vercel build/runtime configuration.
+- `vercel.json` — Vercel build/runtime configuration, including the
+  `/(.*) → /api` rewrite that routes every path to the function.
 - `tests/` — test files (`*.test.ts`).
 
 ## Commands cheat-sheet
@@ -93,7 +98,7 @@ from `@daloyjs/core/openapi`.
 
 ## Workflow: add a new route
 
-1. **Open `api/[...path].ts`.**
+1. **Open `api/index.ts`.**
 2. **Design schemas first.** Use `z.object({...}).strict()` for inputs.
 3. **Call `app.route({...})`** with `method`, `path`, `operationId`,
    `tags`, `responses`, `handler` (plus `request` when accepting input).
@@ -162,7 +167,7 @@ needed for unit tests.
 ```ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import handler from "../api/[...path].ts";
+import handler from "../api/index.ts";
 
 // Either import the underlying app, or test via the handler's fetch
 // method (the default export is the Vercel `{ fetch }` object) by
@@ -213,8 +218,10 @@ Aim for **100% line and function coverage** on the routes you add.
 
 ## Pitfalls and guardrails
 
-- The catch-all `api/[...path].ts` must remain a catch-all so DaloyJS
-  handles routing. Do not split routes into multiple Vercel API files
+- `api/index.ts` is the single Vercel Functions entrypoint and the
+  `/(.*) → /api` rewrite in `vercel.json` must stay so DaloyJS
+  handles routing at the site root (the root domain 404s without it). Do
+  not split routes into multiple Vercel API files
   unless the user explicitly asks (it disables shared middleware and a
   unified OpenAPI).
 - Use `toFetchHandler(app)` from `@daloyjs/core/vercel` for Node.js
