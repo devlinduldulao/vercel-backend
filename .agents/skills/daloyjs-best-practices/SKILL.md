@@ -190,6 +190,12 @@ Aim for **100% line and function coverage** on the routes you add.
 - Keep `secureHeaders()`, `requestId()`, and `rateLimit()` enabled. For
   production traffic, back rate-limiting with Vercel KV or another
   shared store so limits apply across instances.
+- Keep `behindProxy` set on `new App({...})`. A Vercel function always runs
+  behind Vercel's edge proxy (one hop) which sends `x-forwarded-for`; in
+  production the boot guard returns a 500 on **every** request until the
+  posture is declared. `{ hops: 1 }` is correct for Vercel (override with
+  `TRUST_PROXY_HOPS`; e.g. Cloudflare → Vercel = `2`). Satisfy the guard,
+  do not delete it.
 - Never log secrets — filter `authorization`, `cookie`, etc.
 - Read secrets from `process.env` (available on Node.js Functions).
   Validate via Zod at module load.

@@ -15,6 +15,13 @@ const app = new App({
   bodyLimitBytes: 256 * 1024,
   requestTimeoutMs: 5_000,
   production: process.env.NODE_ENV === "production",
+  // A Vercel function always runs behind Vercel's edge proxy (exactly one
+  // hop), which adds `x-forwarded-for`. Declare that posture so the
+  // production boot guard trusts the header instead of refusing the request
+  // with a 500. `{ hops: 1 }` reads the client IP as the 2nd-from-rightmost
+  // entry and rejects spoofed extra hops on the left. Override via env if you
+  // place another proxy in front (e.g. Cloudflare → Vercel = 2 hops).
+  behindProxy: { hops: Number(process.env.TRUST_PROXY_HOPS ?? "1") },
   // daloy-minimal:strip-start docs
   // Auto-mounted docs (when `docs: true`):
   //   GET /openapi.json — OpenAPI 3.1 spec (JSON)
