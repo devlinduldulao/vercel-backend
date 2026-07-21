@@ -11,13 +11,13 @@
     "audit": "npm audit --prod"
   },
   "dependencies": {
-    "@daloyjs/core": "^0.38.2",
-    "zod": "^4.4.3"
+    "@daloyjs/core": "latest",
+    "zod": "latest"
   },
   "devDependencies": {
-    "@types/node": "^25.7.0",
-    "tsx": "^4.22.3",
-    "typescript": "^6.0.3",
-    "vercel": "^48.0.0"
+    "@types/node": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vercel": "latest"
   }
 }
